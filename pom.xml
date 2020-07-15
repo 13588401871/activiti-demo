@@ -48,6 +48,13 @@
 			<artifactId>h2</artifactId>
 			<version>1.4.193</version>
 		</dependency>
+		<!--mysql-->
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<scope>runtime</scope>
+			<version>8.0.20</version>
+		</dependency>
 	</dependencies>
 
 </project>

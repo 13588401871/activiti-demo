@@ -22,20 +22,31 @@ import java.util.Map;
 public class App {
     public static void main(String[] args) throws InterruptedException {
         ProcessEngineConfiguration cfg = new StandaloneProcessEngineConfiguration()
-                .setJdbcUrl("jdbc:h2:mem:activiti;DB_CLOSE_DELAY=1000").setJdbcUsername("sa").setJdbcPassword("")
-                .setJdbcDriver("org.h2.Driver")
-                .setJobExecutorActivate(true)
+                //设置数据库连接属性
+//                .setJdbcUrl("jdbc:h2:mem:activiti;DB_CLOSE_DELAY=1000").setJdbcUsername("sa").setJdbcPassword("")
+//                .setJdbcDriver("org.h2.Driver")
+//                .setJobExecutorActivate(true)
+                //设置数据库连接属性(createDatabaseIfNotExist=true数据库不存在时创建)
+                .setJdbcDriver("com.mysql.cj.jdbc.Driver")
+                .setJdbcUrl("jdbc:mysql://localhost:3306/activitiDB?createDatabaseIfNotExist=true&" +
+                        "serverTimezone=GMT%2B8&useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false")
+                .setJdbcUsername("root")
+                .setJdbcPassword("root")
+                //设置创建表的策略 （当没有表时，自动创建表）
                 .setDatabaseSchemaUpdate(ProcessEngineConfiguration.DB_SCHEMA_UPDATE_TRUE);
+        //创建流程引擎
         ProcessEngine processEngine = cfg.buildProcessEngine();
         String pName = processEngine.getName();
         String ver = ProcessEngine.VERSION;
         System.out.println("ProcessEngine [" + pName + "] Version: [" + ver + "]");
 
+        //获取仓库服务 ：管理流程定义
         RepositoryService repositoryService = processEngine.getRepositoryService();
         // 流程部署
-        Deployment deployment = repositoryService.createDeployment().addClasspathResource("MultiTask.bpmn")
-                .name("流程测试")
-                .category("")
+        Deployment deployment = repositoryService.createDeployment()//创建一个部署的构建器
+                .addClasspathResource("MultiTask.bpmn")//从类路径中添加资源,一次只能添加一个资源
+                .name("流程测试")//设置部署的名称
+                .category("")//设置部署的类别
                 .deploy();
         ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
                 .deploymentId(deployment.getId()).singleResult();
@@ -44,7 +55,7 @@ public class App {
 
         IdentityService identityService = processEngine.getIdentityService();
         // 启动流程
-        RuntimeService runtimeService = processEngine.getRuntimeService();
+        RuntimeService runtimeService = processEngine.getRuntimeService(); // 取运行时服务
         // 分配任务的人员
         List<String> assigneeList = new ArrayList<String>();
         assigneeList.add("tom");
@@ -53,6 +64,7 @@ public class App {
         Map<String, Object> vars = new HashMap<String, Object>();
         vars.put("assigneeList", assigneeList);
         identityService.setAuthenticatedUserId("createUserId");
+        //通过流程定义的key 来执行流程
         ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("myProcess", "Key001", vars);
 
         System.out.println("流程实例ID = " + processInstance.getId());
@@ -64,42 +76,60 @@ public class App {
         Map mapConfirm = new HashMap();
         mapConfirm.put("confirmSts", 1);
 
+        //取得任务服务
         TaskService taskService = processEngine.getTaskService();
-        List<Task> taskList1 = taskService.createTaskQuery().taskAssignee("mary").orderByTaskCreateTime().desc().list();
+        List<Task> taskList1 = taskService.createTaskQuery()//创建一个任务查询对象
+                .taskAssignee("mary")//指定办理人
+                .orderByTaskCreateTime().desc()//排序
+                .list();
         System.out.println("taskList1 = " + taskList1);
 
         Task task1 = taskList1.get(0);
         taskService.setVariablesLocal(task1.getId(), mapConfirm);
         taskService.complete(task1.getId());
 
-        List<Task> taskList2 = taskService.createTaskQuery().taskAssignee("jeck").orderByTaskCreateTime().desc().list();
+        List<Task> taskList2 = taskService.createTaskQuery()
+                .taskAssignee("jeck")
+                .orderByTaskCreateTime().desc()
+                .list();
         System.out.println("taskList2 = " + taskList2);
         Map mapConfirm1 = new HashMap();
         mapConfirm1.put("confirmSts", 1);
+
         Task task2 = taskList2.get(0);
         taskService.setVariablesLocal(task2.getId(), mapConfirm1);
+        //完成任务
         taskService.complete(task2.getId());
 
-        List<Task> taskList3 = taskService.createTaskQuery().taskAssignee("tom").orderByTaskCreateTime().desc().list();
+        List<Task> taskList3 = taskService.createTaskQuery()
+                .taskAssignee("tom")
+                .orderByTaskCreateTime().desc()
+                .list();
         System.out.println("taskList3 = " + taskList3);
 
         Task task3 = taskList3.get(0);
         taskService.setVariablesLocal(task3.getId(), mapConfirm1);
+        //完成任务
         taskService.complete(task3.getId());
         // ============ 会签任务结束 ===========
 
         // 部门主任
         List<Task> taskListDept1 = taskService.createTaskQuery().taskAssignee("dept").orderByTaskCreateTime().desc().list();
         System.out.println("taskListDept1 = " + taskListDept1);
+        //完成任务
         taskService.complete(taskListDept1.get(0).getId());
 
         // =============子流程任务开始==========
 
         // 市场专员
-        List<Task> taskListSczy = taskService.createTaskQuery().taskAssignee("sczy").orderByTaskCreateTime().desc().list();
+        List<Task> taskListSczy = taskService.createTaskQuery()
+                .taskAssignee("sczy")
+                .orderByTaskCreateTime().desc()
+                .list();
         System.out.println("taskListSczy = " + taskListSczy);
         Map<String, Object> map = new HashMap<String, Object>();
         map.put("pass", true);
+        //完成任务
         taskService.complete(taskListSczy.get(0).getId(), map);
 
         // 市场主任
@@ -107,6 +137,7 @@ public class App {
         Map<String, Object> map3 = new HashMap<String, Object>();
         map3.put("pass3", true);
         System.out.println("taskListSczr = " + taskListSczr);
+        //完成任务
         taskService.complete(taskListSczr.get(0).getId(), map3);
 
         // 财务专员
@@ -114,6 +145,7 @@ public class App {
         System.out.println("taskListCwzy = " + taskListCwzy);
         Map<String, Object> map1 = new HashMap<String, Object>();
         map1.put("pass1", true);
+        //完成任务
         taskService.complete(taskListCwzy.get(0).getId(), map1);
 
         // 财务主任
@@ -123,32 +155,51 @@ public class App {
         map4.put("pass4", true);
         taskService.complete(taskListCwzr.get(0).getId(), map4);
 
-        List<Task> taskMe = taskService.createTaskQuery().taskAssignee("me").orderByTaskCreateTime().desc().list();
+        List<Task> taskMe = taskService.createTaskQuery()
+                .taskAssignee("me")
+                .orderByTaskCreateTime().desc()
+                .list();
         System.out.println("taskMe = " + taskMe);
 
         // =============子流程任务结束==========
 
 
         // 技术专员审批
-        List<Task> taskListJishu = taskService.createTaskQuery().taskAssignee("jishu").orderByTaskCreateTime().desc().list();
+        List<Task> taskListJishu = taskService.createTaskQuery()
+                .taskAssignee("jishu")
+                .orderByTaskCreateTime().desc()
+                .list();
         System.out.println("taskListJishu = " + taskListJishu);
+        //完成任务
         taskService.complete(taskListJishu.get(0).getId());
 
         // 综合部公示
-        List<Task> taskListZonghe = taskService.createTaskQuery().taskAssignee("zhb").orderByTaskCreateTime().desc().list();
+        List<Task> taskListZonghe = taskService.createTaskQuery()
+                .taskAssignee("zhb")
+                .orderByTaskCreateTime().desc()
+                .list();
         System.out.println("taskListZonghe = " + taskListZonghe);
+        //完成任务
         taskService.complete(taskListZonghe.get(0).getId());
 
         // 公示确认，5秒未完成自动进入下一流程
-        List<Task> taskListPublic = taskService.createTaskQuery().taskAssignee("张三").orderByTaskCreateTime().desc().list();
+        List<Task> taskListPublic = taskService.createTaskQuery()
+                .taskAssignee("张三")
+                .orderByTaskCreateTime().desc()
+                .list();
         System.out.println("taskListPublic = " + taskListPublic);
+        //完成任务
         taskService.complete(taskListPublic.get(0).getId());
 
         Thread.sleep(1000 * 10);
 
         // 分管领导确认
-        List<Task> taskListLeader = taskService.createTaskQuery().taskAssignee("leader").orderByTaskCreateTime().desc().list();
+        List<Task> taskListLeader = taskService.createTaskQuery()
+                .taskAssignee("leader")
+                .orderByTaskCreateTime().desc()
+                .list();
         System.out.println("taskListLeader = " + taskListLeader);
+        //完成任务
         taskService.complete(taskListLeader.get(0).getId());
 
         // ==================流程结束======================
